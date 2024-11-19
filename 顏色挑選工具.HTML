@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- 保持原有的 CSS 樣式 -->
+  <style>
+    /* ... 原有的所有 CSS 保持不變 ... */
+    .container {
+      width: 400px;
+      background: #c8e6f0;
+      padding: 15px;
+      border: 2px solid #88c3d8;
+      border-radius: 4px;
+      font-family: Microsoft JhengHei, sans-serif;
+    }
+    .input-section {
+      margin-bottom: 15px;
+      padding: 10px;
+      background: rgba(255,255,255,0.5);
+      border-radius: 4px;
+    }
+    .button-section {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    .color-input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #88c3d8;
+      border-radius: 4px;
+    }
+    .rgb-inputs {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+    .rgb-input {
+      width: 33%;
+      padding: 8px;
+      border: 1px solid #88c3d8;
+      border-radius: 4px;
+    }
+    .background-control {
+      margin: 10px 0;
+    }
+    .brightness-control {
+      margin: 10px 0;
+    }
+    .brightness-slider {
+      width: 100%;
+      margin: 5px 0;
+    }
+    .parts-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .part-section {
+      padding: 8px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 4px;
+    }
+    .dye-btn {
+      width: 100%;
+      padding: 8px;
+      background: #5ba4c9;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 5px;
+    }
+    .generate-btn {
+      flex: 1;
+      padding: 10px;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .normal-generate {
+      background: #4CAF50;
+    }
+    .warm-generate {
+      background: #ff5722;
+    }
+    .similar-generate {
+      background: #2196F3;
+    }
+    .color-info {
+      display: flex;
+      gap: 5px;
+      flex-direction: column;
+      font-size: 12px;
+    }
+    .color-value {
+      padding: 4px;
+      background: #333;
+      color: white;
+      border-radius: 3px;
+    }
+    .color-preview {
+      width: 100%;
+      height: 30px;
+      border: 2px solid #666;
+      border-radius: 3px;
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="mainContainer">
+    <div class="input-section">
+      <input type="text" class="color-input" id="colorInput" 
+             placeholder="輸入HEX色碼 (例如: #FF0000)" 
+             onInput="handleColorInput(event)">
+      <div class="rgb-inputs">
+        <input type="number" class="rgb-input" id="rInput" 
+               placeholder="R (0-255)" min="0" max="255"
+               oninput="handleRGBInput()">
+        <input type="number" class="rgb-input" id="gInput" 
+               placeholder="G (0-255)" min="0" max="255"
+               oninput="handleRGBInput()">
+        <input type="number" class="rgb-input" id="bInput" 
+               placeholder="B (0-255)" min="0" max="255"
+               oninput="handleRGBInput()">
+      </div>
+      <div class="background-control">
+        <label>背景顏色:</label>
+        <input type="text" class="color-input" id="bgColorInput" 
+               placeholder="輸入背景HEX色碼" 
+               onInput="handleBgColorInput(event)">
+      </div>
+      <div class="brightness-control">
+        <label>明暗度調整: <span id="brightnessValue">0</span></label>
+        <input type="range" class="brightness-slider" id="brightnessSlider"
+               min="-100" max="100" value="0" step="1"
+               oninput="handleBrightnessChange(event)">
+      </div>
+    </div>
+    <div class="parts-container" id="partsContainer"></div>
+    <div class="button-section">
+      <button class="generate-btn normal-generate" onclick="generateAllSimilarColors()">隨機色系</button>
+      <button class="generate-btn warm-generate" onclick="generateWarmColors()">生成暖色系</button>
+      <button class="generate-btn similar-generate" onclick="generateSimilarFromInput()">生成相似色</button>
+    </div>
+  </div>
+
+  <script>
+    let currentBaseColor = null;
+    let currentBrightness = 0;
+
+    function createPartSection(part) {
+      return `
+        <div class="part-section" id="part${part}">
+          <button class="dye-btn">部位 ${part}</button>
+          <div class="color-preview"></div>
+          <div class="color-info">
+            <div class="color-value hex-value">HEX: #000000</div>
+            <div class="color-value rgb-value">R:0 G:0 B:0</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function hasInputValues() {
+      const hexValue = document.getElementById('colorInput').value;
+      const rValue = document.getElementById('rInput').value;
+      const gValue = document.getElementById('gInput').value;
+      const bValue = document.getElementById('bInput').value;
+      
+      return (hexValue && hexValue.match(/^#[0-9A-Fa-f]{6}$/)) || 
+             (rValue !== '' && gValue !== '' && bValue !== '');
+    }
+
+    // 修改這個函數，使其始終生成相似色
+    function generateSimilarFromInput() {
+      if (hasInputValues() && currentBaseColor) {
+        ['A', 'B', 'C', 'D', 'E', 'F'].forEach(part => {
+          const variation = Math.floor(Math.random() * 96) - 48;
+          const similarColor = {
+            r: Math.max(0, Math.min(255, currentBaseColor.r + variation)),
+            g: Math.max(0, Math.min(255, currentBaseColor.g + variation)),
+            b: Math.max(0, Math.min(255, currentBaseColor.b + variation))
+          };
+          const adjustedColor = adjustBrightness(similarColor, currentBrightness);
+          updatePartColor(`part${part}`, adjustedColor);
+        });
+      }
+    }
+
+    function generateWarmColors() {
+      ['A', 'B', 'C', 'D', 'E', 'F'].forEach(part => {
+        if (hasInputValues()) {
+          // 即使有輸入值，也生成相似的暖色系
+          const variation = Math.floor(Math.random() * 96) - 48;
+          const warmColor = {
+            r: Math.max(0, Math.min(255, currentBaseColor.r + variation)),
+            g: Math.max(0, Math.min(255, currentBaseColor.g + variation)),
+            b: Math.max(0, Math.min(255, currentBaseColor.b + variation))
+          };
+          const adjustedColor = adjustBrightness(warmColor, currentBrightness);
+          updatePartColor(`part${part}`, adjustedColor);
+        } else {
+          const r = Math.floor(Math.random() * (255 - 150 + 1)) + 150;
+          const g = Math.floor(Math.random() * (200 - 50 + 1)) + 50;
+          const b = Math.floor(Math.random() * (100 - 0 + 1)) + 0;
+          
+          const warmColor = {r, g, b};
+          const adjustedColor = adjustBrightness(warmColor, currentBrightness);
+          updatePartColor(`part${part}`, adjustedColor);
+        }
+      });
+    }
+
+    function handleBgColorInput(event) {
+      const value = event.target.value;
+      if (value.match(/^#[0-9A-Fa-f]{6}$/)) {
+        document.getElementById('mainContainer').style.backgroundColor = value;
+      }
+    }
+
+    function handleRGBInput() {
+      const r = parseInt(document.getElementById('rInput').value) || 0;
+      const g = parseInt(document.getElementById('gInput').value) || 0;
+      const b = parseInt(document.getElementById('bInput').value) || 0;
+      
+      if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+        const hex = rgbToHex(r, g, b);
+        document.getElementById('colorInput').value = hex;
+        currentBaseColor = {r, g, b};
+        // 生成相似顏色而不是相同顏色
+        ['A', 'B', 'C', 'D', 'E', 'F'].forEach(part => {
+          const variation = Math.floor(Math.random() * 96) - 48;
+          const similarColor = {
+            r: Math.max(0, Math.min(255, r + variation)),
+            g: Math.max(0, Math.min(255, g + variation)),
+            b: Math.max(0, Math.min(255, b + variation))
+          };
+          updatePartColor(`part${part}`, similarColor);
+        });
+      }
+    }
+
+    function handleColorInput(event) {
+      const value = event.target.value;
+      if (value.match(/^#[0-9A-Fa-f]{6}$/)) {
+        const rgb = hexToRgb(value);
+        if (rgb) {
+          document.getElementById('rInput').value = rgb.r;
+          document.getElementById('gInput').value = rgb.g;
+          document.getElementById('bInput').value = rgb.b;
+          currentBaseColor = rgb;
+          // 生成相似顏色而不是相同顏色
+          ['A', 'B', 'C', 'D', 'E', 'F'].forEach(part => {
+            const variation = Math.floor(Math.random() * 96) - 48;
+            const similarColor = {
+              r: Math.max(0, Math.min(255, rgb.r + variation)),
+              g: Math.max(0, Math.min(255, rgb.g + variation)),
+              b: Math.max(0, Math.min(255, rgb.b + variation))
+            };
+            updatePartColor(`part${part}`, similarColor);
+          });
+        }
+      }
+    }
+
+    function init() {
+      const parts = ['A', 'B', 'C', 'D', 'E', 'F'];
+      const container = document.getElementById('partsContainer');
+      container.innerHTML = parts.map(part => createPartSection(part)).join('');
+      generateAllSimilarColors();
+    }
+
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      if (!result) return null;
+      return {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      };
+    }
+
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(x => {
+        const hex = Math.round(x).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      }).join('');
+    }
+
+    function adjustBrightness(color, adjustment) {
+      return {
+        r: Math.max(0, Math.min(255, color.r + adjustment)),
+        g: Math.max(0, Math.min(255, color.g + adjustment)),
+        b: Math.max(0, Math.min(255, color.b + adjustment))
+      };
+    }
+
+    function handleBrightnessChange(event) {
+      currentBrightness = parseInt(event.target.value);
+      document.getElementById('brightnessValue').textContent = currentBrightness;
+      if (currentBaseColor) {
+        generateAllSimilarColors(currentBaseColor);
+      }
+    }
+
+    function generateRandomBaseColor() {
+      return {
+        r: Math.floor(Math.random() * 256),
+        g: Math.floor(Math.random() * 256),
+        b: Math.floor(Math.random() * 256)
+      };
+    }
+
+    function generateSimilarColor(baseColor) {
+      const variation = Math.floor(Math.random() * 96) - 48;
+      return {
+        r: Math.max(0, Math.min(255, baseColor.r + variation)),
+        g: Math.max(0, Math.min(255, baseColor.g + variation)),
+        b: Math.max(0, Math.min(255, baseColor.b + variation))
+      };
+    }
+
+    function updatePartColor(partId, rgb) {
+      const section = document.getElementById(partId);
+      const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+      section.querySelector('.color-preview').style.backgroundColor = hex;
+      section.querySelector('.hex-value').textContent = `HEX: ${hex}`;
+      section.querySelector('.rgb-value').textContent = 
+        `R:${Math.round(rgb.r)} G:${Math.round(rgb.g)} B:${Math.round(rgb.b)}`;
+    }
+
+    function generateAllSimilarColors(baseColor = null) {
+      currentBaseColor = baseColor || generateRandomBaseColor();
+      ['A', 'B', 'C', 'D', 'E', 'F'].forEach(part => {
+        const similarColor = generateSimilarColor(currentBaseColor);
+        const adjustedColor = adjustBrightness(similarColor, currentBrightness);
+        updatePartColor(`part${part}`, adjustedColor);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
